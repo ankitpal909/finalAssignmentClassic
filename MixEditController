@@ -1,0 +1,224 @@
+public with sharing class MixEditCtrl {
+    
+    //getters and setters ..
+    public Id mixId = ApexPages.currentPage().getParameters().get('id');
+    public List<wrapperSong> wrapSongSelcetedList{get; set;}
+    public Map<Id, String> songStringMap = new Map<Id, String>();
+    public Integer trackCountValue{get; set;}
+    public Integer remainingTracksValue{get; set;}
+    public Decimal mixLengthValue{get; set;}
+    public Decimal remainingMixLengthValue{get; set;}    
+    public List<Song__c> songRecordList{get; set;}
+    public List<String> songIdList{get; set;}
+    public List<Track__c> trackRecordList{get; set;}
+    public Mix__c mix{get; set;}
+    public Mix__c mixRecord{get; set;}
+    public Track__c trackRecord{get; set;}
+    public String genre{get; set;}
+    public List <Song__c> songList{get; set;}
+    public List<Song__c> selectedSongs{get; set;}
+    
+    public static Integer remTrk=20;
+    public static Decimal remMixLen=90;
+    
+    //constructor ..
+    public MixEditCtrl(ApexPages.StandardController sc){
+        mix = new Mix__c(Id=mixId);
+    }   
+    
+    //standard set controller function for values during initialization ..
+    public ApexPages.StandardSetController setCon {
+        get {
+            if(setCon == null) {
+                setCon = new ApexPages.StandardSetController(Database.getQueryLocator(
+                    [SELECT Id, Name, Genre__c, Length_m__c FROM Song__c]));
+            }
+            return setCon;
+        }
+        set;
+    }
+    public List<Song__c> wrapSongSelcetedList() {
+        return (List<Song__c>) setCon.getRecords();
+    }
+    
+    //Mix Summary-pageBlockSection functions ..
+    //*
+    //*
+    //*
+    
+    //*
+    //*
+    //*
+    //Mix Summary-pageBlockSection functions ..
+    
+    
+    //Songs-pageBlockSection functions ..
+    //*
+    //*
+    //*
+    //
+    //function for fetching genre from song object ..
+    public List<SelectOption> getGenreList(){
+        List <SelectOption> genreOptionList = new List<SelectOption>();        
+        Schema.DescribeFieldResult genreDescribeFieldResult = Song__c.Genre__c.getDescribe();
+        List<Schema.PicklistEntry> genrePicklist = genreDescribeFieldResult.getPicklistValues();        
+        for( Schema.PicklistEntry genrePicklistValues : genrePicklist){
+            genreOptionList.add(new SelectOption(genrePicklistValues.getLabel(), genrePicklistValues.getValue()));
+        }       
+        return genreOptionList;
+    }
+    
+    //wrapper class ..
+    //*
+    //*
+    
+    //function for fetching songs ..
+    /* public List<wrapperSong> getSongListWrapper(){
+if(wrapSongSelcetedList==null){
+wrapSongSelcetedList = new List<wrapperSong>();
+for(Song__c song : [SELECT Id, Name, Genre__c, Length_m__c FROM Song__c]){
+wrapSongSelcetedList.add(new wrapperSong(song));
+}
+}
+return wrapSongSelcetedList;
+}*/
+    
+    //
+    public List<wrapperSong> getSongListWrapper(){
+        SET<Id> songIdSet = new SET<Id>();
+        System.debug('inside getSongListWrapper ' + mixId);
+        List<Track__c> trackList = [SELECT Id, Mix__c, Song__c FROM Track__c WHERE Mix__c=:mixId];
+        for(Track__c trackListValues : trackList){
+            System.debug('inside getSongListWrapper for loop ' + mixId);
+            songIdSet.add(trackListValues.Song__c);
+        }
+        if(wrapSongSelcetedList==null){
+            wrapSongSelcetedList = new List<wrapperSong>();
+            for(Song__c song : [SELECT Id, Name, Genre__c, Length_m__c FROM Song__c WHERE Id IN:songIdSet]){
+                wrapSongSelcetedList.add(new wrapperSong(song, true));
+            }
+        }
+        return wrapSongSelcetedList;
+    }
+    //
+    
+    //function for fetching songs from song object based on genre being selected ..   
+    public PageReference songBasedOnGenre(){
+        SET<Id> songIdSet = new SET<Id>();
+        List<Track__c> trackList = [SELECT Id, Mix__c, Song__c FROM Track__c WHERE Mix__c=:mixId];
+        for(Track__c trackListValues : trackList){
+            songStringMap.put(trackListValues.Song__c, 'true');
+        }
+        if(genre=='--Any Genre--'){
+            songList = new List<Song__c>();
+            wrapSongSelcetedList = new List<wrapperSong>();            
+            songList = [SELECT Id, Name, Genre__c, Length_m__c FROM Song__c];
+            for(Song__c songBasedOnGenre : songList){
+                if(songStringMap.containsKey(songBasedOnGenre.Id)){
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, true));
+                }
+                else{
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, false));
+                }
+            }
+        }
+        else{
+            wrapSongSelcetedList = new List<wrapperSong>();
+            songList = [SELECT Id, Name, Genre__c, Length_m__c FROM Song__c WHERE Genre__c=:genre];
+            for(Song__c songBasedOnGenre : songList){
+                if(songStringMap.containsKey(songBasedOnGenre.Id)){
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, true));
+                }
+                else{
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, false));
+                }
+            }            
+        }
+        return null;
+    }
+    
+    //function for fetching row of selected checkbox ..
+    public PageReference songCheckboxSelected(){
+        //this is the list where we populate selected songs .. 
+        selectedSongs = new List<Song__c>();
+        for(wrapperSong wrapperSongVariable : wrapSongSelcetedList){
+            if(wrapperSongVariable.songCheckboxValue==true){
+                selectedSongs.add(wrapperSongVariable.songVariable); 
+            }
+        }
+        
+        if(selectedSongs.size()<remTrk+1){
+            trackCountValue=selectedSongs.size();
+            remainingTracksValue=remTrk-trackCountValue;
+            Set<Id>songIds=new Set<Id>();
+            for(Song__c songObj:selectedSongs){
+                songIds.add(songObj.Id);
+            }
+            List<AggregateResult>sumOfMixLengthValue=[SELECT SUM(Length_m__c)
+                                                      FROM Song__c
+                                                      WHERE Id IN:songIds];
+            mixLengthValue =(Decimal)sumOfMixLengthValue[0].get('expr0');
+            if(mixLengthValue<remMixLen){
+                remainingMixLengthValue=remMixLen-mixLengthValue;
+                remMixLen=remainingMixLengthValue;
+            }
+            else if(mixLengthValue>90){
+                ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'Track length cannot exceed more than 90'));                
+            }
+        }
+        else{
+            ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'You cannot select more than 20 songs'));
+        }  
+        return null;
+    }
+    
+    //this is wrapper class ..
+    public class wrapperSong{
+        public Song__c songVariable{get; set;}
+        public Boolean songCheckboxValue{get; set;}
+        
+        //constructor ..
+        public wrapperSong(Song__c song, Boolean checkboxValue){
+            songVariable = song;            
+            System.debug('inside wrapperSong ' + checkboxValue);
+            songCheckboxValue = checkboxValue;
+        }
+    }
+    //*
+    //*
+    //wrapper class ..
+    //*
+    //*
+    //*
+    //Songs-pageBlockSection functions ..
+    
+    //function for save button ..
+    public PageReference save(){            
+        trackRecordList = new List<Track__c>();
+        update mix;
+        try{
+            if(mix.Id!=null){
+                for(Song__c songRecordValues : selectedSongs){
+                    trackRecord = new Track__c();
+                    trackRecord.Mix__c = mixId;
+                    trackRecord.Song__c = songRecordValues.Id;
+                    trackRecordList.add(trackRecord);
+                }
+            }
+            MixNewPrimaryAndSecondaryGenre.updatePrimaryAndSecondaryGenre(mix, trackRecordList);
+            insert trackRecordList;
+        }catch(DmlException e){
+            System.debug(e.getMessage());
+        }
+        PageReference saveMixNew = new PageReference('/' + mix.Id);
+        saveMixNew.setRedirect(true);            
+        return saveMixNew;
+    }
+    
+    //function for cancel button ..
+    public PageReference cancel(){
+        PageReference cancelMixNew = new PageReference('/' + 'a01/o');
+        cancelMixNew.setRedirect(true);
+        return cancelMixNew;
+    }
+}
