@@ -1,0 +1,84 @@
+public class TrackHandler {
+    
+    //function for triggering event on inserting new track ..
+    Public static void onInsertTrack(List<Track__c> trackList){
+        Set<Id> songIdSet = new Set<Id>();
+        Id mixId;
+        if(trackList!=NULL){
+            for(Track__c trackListValues : trackList){
+                songIdSet.add(trackListValues.Song__c);
+                mixId = trackListValues.Mix__c;
+            }
+            List<Song__c> songList=[SELECT Id, Name, Track_Count__c, Genre__c FROM Song__c WHERE Id IN:songIdSet];
+            for(Song__c songListValues : songList){
+                songListValues.Track_Count__c++;
+            }
+            update songList;
+            Mix__c mixRecord = [SELECT Id, Customer__c, Primary_Genre__c, Secondary_Genre__c FROM Mix__c WHERE Id=:mixId];
+            List<Track__c> trackForGenreList = [SELECT Id, Mix__c, Song__c FROM Track__C WHERE Mix__c =: mixId];
+            MixNewPrimaryAndSecondaryGenre.updatePrimaryAndSecondaryGenre(mixRecord, trackForGenreList);
+        }       
+    }
+    
+    //function for triggering event before updating new track ..
+    Public static void onBeforeUpdateTrack(List<Track__c> trackList){        
+        Set<Id> songIdSet = new Set<Id>();
+        if(trackList!=NULL){
+            for(Track__c trackListValues : trackList){
+                songIdSet.add(trackListValues.Song__c);                 
+            }
+            List<Song__c> songList=[SELECT Id, Name, Track_Count__c FROM Song__c WHERE Id IN:songIdSet];
+            for(Song__c songListValues : songList){
+                songListValues.Track_Count__c--;
+            }
+            update songList; 
+        }   
+    }
+    
+    //function for triggering event on after updating new track ..
+    Public static void onAfterUpdateTrack(List<Track__c> trackList){
+        Set<Id> songIdSet = new Set<Id>();
+        if(trackList!=NULL){
+            for(Track__c trackListValues : trackList){
+                songIdSet.add(trackListValues.Song__c);    
+            }
+            List<Song__c> songList=[SELECT Id, Name, Track_Count__c FROM Song__c WHERE Id IN:songIdSet];
+            for(Song__c songListValues : songList){
+                songListValues.Track_Count__c++;
+            }
+            update songList;
+        }   
+    }
+    
+    //function for triggering event on deleting new track ..
+    Public static void onDeleteTrack(List<Track__c> trackList){
+        Set<Id> songIdSet = new Set<Id>();
+        Id mixId;
+        Map<Id, String> trackStringMap = new Map<Id, String>();
+        if(trackList!=NULL){
+            for(Track__c trackListValues : trackList){
+                songIdSet.add(trackListValues.Song__c);
+                mixId = trackListValues.Mix__c;
+            }
+            List<Song__c> songList=[SELECT Id, Name, Track_Count__c FROM Song__c WHERE Id IN:songIdSet];
+            for(Song__c songListValues : songList){
+                songListValues.Track_Count__c--;
+            }
+            update songList;
+        }
+        Mix__c mixRecord = [SELECT Id, Customer__c, Primary_Genre__c, Secondary_Genre__c FROM Mix__c WHERE Id=:mixId];
+        List<Track__c> trackListNew = [SELECT Id, Mix__c, Song__c FROM Track__c WHERE Mix__c=:mixId];
+        for(Track__c trackListNewValues : trackListNew){
+            trackStringMap.put(trackListNewValues.Id, 'yes');
+        }
+        for(Track__c trackListValues : trackList){
+            if(trackStringMap.containsKey(trackListValues.Id)){
+                trackStringMap.remove(trackListValues.Id);
+            }
+        }
+        SET<Id> trackForGenreSet = new SET<Id>();
+        trackForGenreSet.addAll(trackStringMap.keySet());
+        List<Track__c> trackForGenreList = [SELECT Id, Mix__c, Song__c FROM Track__C WHERE Id IN:trackForGenreSet];
+        MixNewPrimaryAndSecondaryGenre.updatePrimaryAndSecondaryGenre(mixRecord, trackForGenreList);
+    }
+}
