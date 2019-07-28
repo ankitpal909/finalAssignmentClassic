@@ -1,0 +1,15 @@
+trigger TrackTrigger on Track__c (after insert, before update, after update, before delete, after undelete)
+{
+    if(trigger.isInsert || trigger.isUndelete) {
+        TrackHandler.onInsertTrack(Trigger.New);
+    }
+    else if(trigger.isBefore && trigger.isUpdate) {
+        TrackHandler.onBeforeUpdateTrack(Trigger.Old);
+    }
+    else if(trigger.isAfter && trigger.isUpdate) {
+        TrackHandler.onAfterUpdateTrack(Trigger.New);
+    }
+    else if(trigger.isDelete) {
+        TrackHandler.onDeleteTrack(Trigger.Old);
+    }
+}
