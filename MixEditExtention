@@ -1,0 +1,305 @@
+public with sharing class MixEditExt {
+    
+    //getters and setters ..
+    //id ..
+    public Id mixId = ApexPages.currentPage().getParameters().get('id');
+    
+    //integers ..
+    public Integer trackCountValue{get; set;}
+    public Integer remainingTracksValue{get; set;}
+    public static Integer remainingTrack=20;
+    public static Integer remTrk=20;
+    
+    //decimals ..
+    public Decimal mixLengthValue{get; set;}
+    public Decimal remainingMixLengthValue{get; set;}
+    public static Decimal remMixLen=90;
+    
+    //lists ..    
+    public List<Song__c> songRecordList{get; set;}
+    public List<String> songIdList{get; set;}
+    public List<Track__c> trackRecordList{get; set;}
+    public List<wrapperSong> wrapSongSelcetedList{get; set;}
+    public List <Song__c> songList{get; set;}
+    public List<Song__c> selectedSongs{get; set;}
+    public List<Track__c> trackRecordDeletedList{get; set;}
+    
+    //objects ..
+    public Mix__c mixRecord{get{
+        if(mixId!=null){
+            mixRecord = [SELECT Id, Name, Customer__c, Primary_Genre__c, Secondary_Genre__c
+                         FROM Mix__c
+                         WHERE Id=:mixId];
+        }
+        return mixRecord;
+    } set;}
+    public Track__c trackRecord{get; set;}                 
+    public Mix__c mix{get; set;}
+    
+    //maps ..
+    public Map<Id, String> songStringMap = new Map<Id, String>();
+    public Map<Id, String> songTrackMap{get; set;}
+    
+    //sets ..
+    SET<Id> songIdSet{get; set;}
+    SET<Id> songIdForSelectedSongSet{get; set;}
+    
+    //String
+    public String genre{get; set;}    
+    
+    //constructor ..
+    public MixEditExt(ApexPages.StandardController sc){
+        if(mixId==null){
+            mixRecord = new Mix__c();
+        }
+    }
+    
+    //Mix Summary-pageBlockSection functions ..
+    //*
+    //*
+    //*
+    
+    //*
+    //*
+    //*
+    //Mix Summary-pageBlockSection functions ..
+    
+    
+    //Songs-pageBlockSection functions ..
+    //*
+    //*
+    //*
+    //
+    //function for fetching genre from song object ..
+    public List<SelectOption> getGenreList(){
+        List <SelectOption> genreOptionList = new List<SelectOption>();        
+        Schema.DescribeFieldResult genreDescribeFieldResult = Song__c.Genre__c.getDescribe();
+        List<Schema.PicklistEntry> genrePicklist = genreDescribeFieldResult.getPicklistValues();        
+        for( Schema.PicklistEntry genrePicklistValues : genrePicklist){
+            genreOptionList.add(new SelectOption(genrePicklistValues.getLabel(), genrePicklistValues.getValue()));
+        }       
+        return genreOptionList;
+    }
+    
+    //wrapper class ..
+    //*
+    //*
+    
+    //function for fetching songs ..
+    public List<wrapperSong> getSongListWrapper(){
+        songIdSet = new SET<Id>();
+        if(mixId!=null){
+            List<Track__c> trackList = [SELECT Id, Mix__c, Song__c FROM Track__c WHERE Mix__c=:mixId];
+            for(Track__c trackListValues : trackList){
+                songIdSet.add(trackListValues.Song__c);
+            }
+        }
+        if(wrapSongSelcetedList==null){
+            wrapSongSelcetedList = new List<wrapperSong>();
+            for(Song__c song : [SELECT Id, Name, Genre__c, Length_m__c, Track_Count__c, Track_Licenses__c
+                                FROM Song__c]){
+                                    if(songIdSet.contains(song.Id)){
+                                        wrapSongSelcetedList.add(new wrapperSong(song, true));
+                                        songStringMap.put(song.Id, 'yes');
+                                    }
+                                    else{
+                                        wrapSongSelcetedList.add(new wrapperSong(song, false));
+                                    }                                        
+                                }
+        }
+        songCheckboxSelected();
+        return wrapSongSelcetedList;
+    }
+    //
+    
+    //function for fetching songs from song object based on genre being selected ..   
+    public PageReference songBasedOnGenre(){
+        if(genre=='--Any Genre--'){
+            songList = new List<Song__c>();
+            wrapSongSelcetedList = new List<wrapperSong>();            
+            songList = [SELECT Id, Name, Genre__c, Length_m__c, Track_Count__c, Track_Licenses__c
+                        FROM Song__c];
+            for(Song__c songBasedOnGenre : songList){
+                if(songStringMap.containsKey(songBasedOnGenre.Id)){
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, true));
+                }
+                else{
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, false));
+                }
+            }
+        }
+        else{
+            wrapSongSelcetedList = new List<wrapperSong>();
+            songList = [SELECT Id, Name, Genre__c, Length_m__c, Track_Count__c, Track_Licenses__c
+                        FROM Song__c WHERE Genre__c=:genre];
+            for(Song__c songBasedOnGenre : songList){
+                if(songStringMap.containsKey(songBasedOnGenre.Id)){
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, true));
+                }
+                else{
+                    wrapSongSelcetedList.add(new wrapperSong(songBasedOnGenre, false));
+                }
+            }            
+        }
+        return null;
+    }
+    
+    //function for fetching row of selected checkbox ..
+    public PageReference songCheckboxSelected(){
+        //this is the list where we populate selected songs ..
+        selectedSongs = new List<Song__c>();
+        for(wrapperSong wrapperSongVariable : wrapSongSelcetedList){
+            if(wrapperSongVariable.songCheckboxValue==true){
+                selectedSongs.add(wrapperSongVariable.songVariable);
+                songStringMap.put(wrapperSongVariable.songVariable.Id, 'yes');
+            }
+            else{
+                songStringMap.remove(wrapperSongVariable.songVariable.Id);
+            }
+        }
+        
+        if(selectedSongs.size()<remainingTrack+1){
+            trackCountValue = songStringMap.size();
+            remainingTracksValue = remainingTrack-trackCountValue;
+            Set<Id>songIds = new Set<Id>();
+        songIds.addAll(songStringMap.keySet());
+            /*for(Song__c selectedSongsValues:selectedSongs){
+                songIds.add(selectedSongsValues.Id);
+            }*/
+            List<AggregateResult>sumOfMixLengthValue=[SELECT SUM(Length_m__c)
+                                                      FROM Song__c
+                                                      WHERE Id IN:songIds];
+            mixLengthValue =(Decimal)sumOfMixLengthValue[0].get('expr0');
+            if(songStringMap.isEmpty()){
+                remainingmixLengthValue = 90.0;
+                //mixLengthValue=0.0;
+            }
+            else if(mixLengthValue<=remMixLen){
+                remainingMixLengthValue = remMixLen-mixLengthValue;
+                //remMixLen=remainingMixLengthValue;
+            }
+            else if(mixLengthValue>90){
+                ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'Track length cannot exceed more than 90'));
+                return null;                
+            }
+        }
+        else{
+            ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'You cannot select more than 20 songs'));
+            return null;
+        }  
+        return null;
+    }
+    
+    //this is wrapper class ..
+    public class wrapperSong{
+        public Song__c songVariable{get; set;}
+        public Boolean songCheckboxValue{get; set;}
+        
+        //constructor ..
+        public wrapperSong(Song__c song, Boolean checkboxValue){
+            songVariable = song;
+            songCheckboxValue = checkboxValue;
+        }
+    }
+    //*
+    //*
+    //wrapper class ..
+    //*
+    //*
+    //*
+    //Songs-pageBlockSection functions ..
+    
+    //function for save button ..
+    public PageReference save(){
+        SET<Id> songIdFromMapSet = new SET<Id>();
+        songIdFromMapSet.addAll(songStringMap.keySet());
+        trackRecordList = new List<Track__c>();
+        List<Song__c> selectedSongsUpdatedList = new List<Song__c>();
+        selectedSongsUpdatedList = [SELECT Id, Name, Genre__c, Length_m__c, Track_Count__c, Track_Licenses__c
+                                    FROM Song__c WHERE Id IN:songIdFromMapSet];
+        if(mixLengthValue>90){
+            ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'Track length cannot exceed more than 90'));
+            return null;
+        }
+        else if(selectedSongsUpdatedList.size()>remTrk){
+            ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'You cannot select more than 20 songs'));
+            return null;
+        }
+        if(mixId!=null){
+            trackRecordDeletedList = [SELECT Id FROM Track__c WHERE Mix__c=:mixId];
+            SET<Id>songIdSet = new SET<Id>();
+            mixRecord = [SELECT Id, Name, Customer__c, Primary_Genre__c, Secondary_Genre__c
+                         FROM Mix__c
+                         WHERE Id=:mixId];
+        }
+        else if(mixId==null){            
+            trackRecordList = new List<Track__c>();
+            mix = new Mix__c();
+            mix.Name = mixRecord.Name;
+            mix.Customer__c = mixRecord.Customer__c;
+            insert mix;
+            //mixId=mix.Id;
+        }
+        if(selectedSongsUpdatedList!=null){
+            for(Song__c selectedSongsUpdatedListValues : selectedSongsUpdatedList){
+                if(selectedSongsUpdatedListValues.Track_Count__c==selectedSongsUpdatedListValues.Track_Licenses__c){ 
+                    ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,
+                                                               'Reached Track License limit for ' + selectedSongsUpdatedListValues.Name));
+                    return null;
+                }
+                else if(mixId!=null){
+                    trackRecord = new Track__c();
+                    trackRecord.Mix__c = mixId;
+                    trackRecord.Song__c = selectedSongsUpdatedListValues.Id;
+                    trackRecordList.add(trackRecord);
+                }
+                else{
+                    trackRecord = new Track__c();
+                    trackRecord.Mix__c = mix.Id;
+                    trackRecord.Song__c = selectedSongsUpdatedListValues.Id;
+                    trackRecordList.add(trackRecord);
+                }
+            }
+        }
+        try{
+            if(mixId!=null){
+                if(trackRecordList!=null && trackRecordList!=trackRecordDeletedList){
+                    delete trackRecordDeletedList;
+                    insert trackRecordList;
+                }
+            }
+            else{
+                insert trackRecordList;              
+            }
+            if(mixRecord.Id!=null){
+                update mixRecord;
+            }
+        }catch(DmlException e){
+            System.debug(e.getMessage());
+        }
+        if(mixId!=null){
+            PageReference saveMixNew = new PageReference('/' + mixId);
+            saveMixNew.setRedirect(true);            
+            return saveMixNew;
+        }
+        else {
+            PageReference saveMixNew = new PageReference('/' + mix.Id);
+            saveMixNew.setRedirect(true);
+            return saveMixNew;
+        }
+    }
+    
+    //function for cancel button ..
+    public PageReference cancel(){
+        if(mixId!=null){
+            PageReference cancelMixNew = new PageReference('/' + mixId);
+            cancelMixNew.setRedirect(true);
+            return cancelMixNew;
+        }
+        else{
+            PageReference cancelMixNew = new PageReference('/' + 'a01/o');
+            cancelMixNew.setRedirect(true);
+            return cancelMixNew;
+        }
+    }
+}
