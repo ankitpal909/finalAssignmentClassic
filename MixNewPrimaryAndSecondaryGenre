@@ -1,0 +1,43 @@
+public class MixNewPrimaryAndSecondaryGenre {
+    
+    //function for assigning primary and secondary genres to the mix ..
+    public static void updatePrimaryAndSecondaryGenre(Mix__c mixRecord, List<Track__c>trackList){
+        Integer genreCount;
+        Set<Id> songIdSet = new Set<Id>();        
+        for(Track__c song: trackList){
+            songIdSet.add(song.Song__c);
+        }
+        Map<String, Integer> genreCountMap = new Map<String, Integer>();
+        List<Song__c> songList = [SELECT Id,Genre__c FROM Song__c WHERE Id IN : songIdSet];
+        for(Song__c songListValues : songList){
+            if(genreCountMap.containsKey(songListValues.Genre__c)){
+                genreCount = genreCountMap.get(songListValues.Genre__c);
+                genreCount++;
+                genreCountMap.put(songListValues.Genre__c, genreCount);
+            }
+            else {
+                genreCount = 1;
+                genreCountMap.put(songListValues.Genre__c, genreCount);
+            }
+        }        
+        List<String> genreStringList = new List<String>();
+        genreStringList.addAll(genreCountMap.keySet());
+        genreStringList.sort();
+        Map<String,Integer> sortedGenreMap = new Map<String,Integer>();
+        for(String genreStringListValues : genreStringList){
+            sortedGenreMap.put(genreStringListValues, genreCountMap.get(genreStringListValues));
+        }        
+        String primaryGenre = sortedGenreMap.isEmpty()?null:new List<String>(sortedGenreMap.keySet())[0];
+        for(String sortedGenreMapValues : sortedGenreMap.keySet()){
+            primaryGenre = sortedGenreMap.get(sortedGenreMapValues)>sortedGenreMap.get(primaryGenre)?sortedGenreMapValues:primaryGenre;
+        }
+        sortedGenreMap.remove(primaryGenre);
+        String secondaryGenre = sortedGenreMap.isEmpty()?null:new List<String>(sortedGenreMap.keySet())[0];
+        for(String sortedGenreMapValues:sortedGenreMap.keySet()){
+            secondaryGenre = sortedGenreMap.get(sortedGenreMapValues)>sortedGenreMap.get(primaryGenre)?sortedGenreMapValues:secondaryGenre;
+        }
+        mixRecord.Primary_Genre__c = primaryGenre;
+        mixRecord.Secondary_Genre__c = secondaryGenre;  
+        update mixRecord;
+    }
+}
