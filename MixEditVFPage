@@ -1,0 +1,110 @@
+<apex:page standardController="Mix__c" extensions="MixEditExt">
+    
+    <!--header ..-->
+    <apex:variable var="mixName" value="New Mix" />
+    <apex:sectionHeader title="Mix Builder" subtitle="{!if(mixRecord.Id!=null, mixRecord.Name, mixName)}"/>
+    <!--header ..-->    
+    
+    <div>
+        <!--form ..-->
+        <apex:form >
+            <!--messages ..-->
+            <apex:pageMessages id="idMessages">
+            </apex:pageMessages> 
+            <!--messages ..-->
+            <!--page block ..-->
+            <apex:pageBlock >            
+                
+                <!--Sections ..-->
+                
+                <!--Mix Details Section ..-->
+                <apex:pageBlockSection title="Mix Details" collapsible="false" >
+                    <apex:inputField value="{!mixRecord.Name}" required="true"/>
+                    <apex:inputField value="{!mixRecord.Customer__c}" required="true" />
+                </apex:pageBlockSection>
+                <!--Mix Details Section ..-->           
+                
+                
+                <!--Mix Summary Section ..-->
+                <apex:pageBlockSection id="idMixSummary" title="Mix Summary" collapsible="false">
+                    <apex:outputText label="Track Count" value="{!trackCountValue}"/>
+                    <apex:outputText label="Remaining Tracks" value="{!remainingTracksValue}"/>
+                    <apex:outputText label="Mix Length(m)" value="{!mixLengthValue}"/>
+                    <apex:outputText label="Remaining Mix Length(m)" value="{!remainingmixLengthValue}"/>
+                </apex:pageBlockSection>
+                <!--Mix Summary Section ..-->            
+                <!--Buttons ..-->
+                <apex:pageBlockButtons location="top" >
+                    <apex:commandButton value="Save" action="{!save}"/>
+                </apex:pageBlockButtons>
+                <!--Buttons ..-->
+            </apex:pageBlock>
+            <!--page block ..-->
+        </apex:form>
+        <apex:form id="idForm">
+            <apex:pageBlock >
+                <!--Mix Details Section ..-->
+                <apex:pageBlockSection title="Songs" collapsible="false">
+                    
+                    <!--genre picklist ..-->
+                    <apex:actionRegion >
+                        <apex:selectList id="idSelectList" label="Song Genre Filter" size="1" value="{!Genre}">
+                            <apex:selectOptions value="{!GenreList}" />
+                            <apex:actionSupport event="onchange" action="{!songBasedOnGenre}" reRender="idPanelGridSongsList"/>
+                        </apex:selectList>
+                    </apex:actionRegion><br/>
+                    <!--genre picklist ..-->
+                    
+                    <!--table ..--> 
+                    <apex:panelGrid id="idPanelGridSongsList" width="250%">                        
+                        <apex:actionStatus id="idStatus" >
+                            <apex:facet name="start" >
+                                <apex:outputText value="updating table .." />                    
+                            </apex:facet>
+                        </apex:actionStatus>
+                        <apex:actionRegion >
+                            <apex:pageBlockTable var="songSongListWrapper" value="{!SongListWrapper}">
+                                <apex:column headerValue="Select" >
+                                    <apex:actionRegion >
+                                        <apex:inputCheckbox value="{!songSongListWrapper.songCheckboxValue}" onchange="songCheckboxSelected()">
+                                        </apex:inputCheckbox>
+                                    </apex:actionRegion>
+                                </apex:column>
+                                <apex:column value="{!songSongListWrapper.songVariable.Name}"/>
+                                <apex:column value="{!songSongListWrapper.songVariable.Genre__c}"/>
+                                <apex:column value="{!songSongListWrapper.songVariable.Length_m__c}"/>
+                            </apex:pageBlockTable>
+                        </apex:actionRegion>
+                        <apex:actionFunction action="{!songCheckboxSelected}"
+                                             status="idStatus"
+                                             name="checkboxValueChanged"
+                                             reRender="idPanelGridSongsList,
+                                                       idMixSummary,
+                                                       idMessages,
+                                                       idForm"/>
+                    </apex:panelGrid>
+                    <!--table ..-->           
+                    
+                </apex:pageBlockSection>
+                <!--Mix Details Section ..-->              
+                <!--Buttons ..-->
+                <apex:pageBlockButtons location="bottom" >
+                    <apex:commandButton value="Cancel" action="{!cancel}"/>
+                </apex:pageBlockButtons>
+                <!--Buttons ..-->          
+                <!--Sections ..-->          
+                
+            </apex:pageBlock>
+        </apex:form>        
+    </div>
+    <!--form ..-->
+    
+    <!--script ..-->
+    <script>
+    function songCheckboxSelected(){
+        checkboxValueChanged();
+    }
+    </script>
+    <!--script ..-->
+    
+</apex:page>
